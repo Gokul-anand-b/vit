@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Quiz Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+  body { display: flex; height: 100vh; background: #f5f6fa; }
+  .sidebar { width: 220px; background: #1e293b; color: #fff; display: flex; flex-direction: column; padding: 20px 0; }
+  .sidebar h2 { text-align: center; margin-bottom: 30px; font-size: 20px; }
+  .nav-item { padding: 12px 20px; cursor: pointer; color: #cbd5e1; transition: background 0.2s; }
+  .nav-item:hover, .nav-item.active { background: #334155; color: #fff; }
+  .main { flex: 1; padding: 20px; overflow-y: auto; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .upload-box { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
+  input[type=file] { margin-bottom: 10px; }
+  .quiz-question { margin-bottom: 15px; }
+  .quiz-options label { display: block; margin-bottom: 5px; }
+  button { padding: 10px 15px; border: none; border-radius: 5px; background: #2563eb; color: white; cursor: pointer; margin-top: 10px; }
+  button:hover { background: #1d4ed8; }
+  .history-entry { background: #fff; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+  .trend-up { color: green; font-weight: bold; }
+  .trend-down { color: red; font-weight: bold; }
+  .trend-equal { color: gray; font-weight: bold; }
+  .notes-box { background: #fff; padding: 10px; border-radius: 5px; margin-top: 10px; }
+  .card { background:#fff; border-radius:10px; padding:16px; box-shadow:0 2px 5px rgba(0,0,0,0.06); margin:10px 0; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; }
+  .video { width: 220px; }
+  .video img { width:100%; border-radius:8px; }
+  .resources ul { padding-left: 18px; }
+  .pill { display:inline-block; padding:4px 10px; background:#e2e8f0; border-radius:999px; margin-right:6px; font-size:12px; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <h2>Dashboard</h2>
+  <div class="nav-item active" data-section="home">🏠 Home</div>
+  <div class="nav-item" data-section="uploads">📤 Uploads</div>
+  
+  <div class="nav-item" data-section="study">📚 Study Materials</div>
+  <div class="nav-item" data-section="history">📈 History</div>
+  <div class="nav-item" data-section="profile">👤 Profile</div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <!-- Home -->
+  <div id="home" class="section active">
+  <h1>Welcome Back!</h1>
+  <p id="welcomeMessage"></p>
+
+  <!-- Stats Row -->
+  <div class="row">
+    <div class="card">📊 Last Score: <b id="lastScore">-</b></div>
+    <div class="card">📝 Total Quizzes: <b id="totalQuizzes">0</b></div>
+    <div class="card">🔥 Streak: <b id="streakDays">0</b> days</div>
+    <div class="card">⚠ Weak Topic: <b id="topWeakTopic">None</b></div>
+  </div>
+
+  <!-- Mini Chart -->
+  <div class="card" style="max-width:500px; margin-top:20px;">
+    <canvas id="miniScoreChart"></canvas>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="row" style="margin-top:20px;">
+    <button onclick="switchSection('uploads')">📤 Upload & Quiz</button>
+    <button onclick="switchSection('study')">📚 Study Materials</button>
+    <button onclick="switchSection('history')">📈 View History</button>
+  </div>
+
+  <!-- Motivation -->
+  <div class="card" style="margin-top:20px;">
+    <i id="dailyQuote"></i>
+  </div>
+</div>
+
+  <!-- Uploads -->
+  <div id="uploads" class="section">
+  <h1>Upload PDF & Take Quiz</h1>
+  <div class="upload-box">
+    <input type="file" id="pdfFile" accept="application/pdf" multiple>
+    <button onclick="uploadPDF()">Upload</button>
+  </div>
+  <div id="summaryBox"></div>
+  <div id="quizBox"></div>
+  <div id="resultBox"></div>
+
+  <!-- Uploaded PDFs List -->
+  <div class="card" style="margin-top:20px;">
+    <h3>Uploaded PDFs</h3>
+    <ul id="uploadedList"></ul>
+  </div>
+</div>
+
+
+  <!-- Study Materials -->
+  <div id="study" class="section">
+    <h1>Find Study Materials</h1>
+    <div class="card">
+      <input type="text" id="studyTopic" placeholder="Enter topic (e.g., Normalization in DBMS)" style="padding:10px; width:320px;">
+      <button onclick="fetchStudyMaterials()">Search</button>
+      <div style="margin-top:8px;">
+        <span class="pill">AI Notes</span>
+        <span class="pill">YouTube</span>
+        <span class="pill">Web PDFs & Articles</span>
+      </div>
+    </div>
+    <div id="studyResults" style="margin-top:12px;"></div>
+  </div>
+
+  <!-- History -->
+  <div id="history" class="section">
+    <h1>Progress History</h1>
+    <div id="historyContainer"></div>
+    <canvas id="scoreChart" width="400" height="200"></canvas>
+
+    <!-- Weak Topics Chart -->
+    <h2 style="margin-top:20px;">Most Frequent Weak Topics</h2>
+    <div id="weakTopicsChart" style="max-width: 400px; margin-top:10px;"></div>
+  </div>
+
+  <!-- Profile -->
+  <div id="profile" class="section">
+    <h1>Profile</h1>
+    <p>User info and settings will go here.</p>
+  </div>
+</div>
+
+<script>
+  let quizData = [];
+  let summaryText = '';
+  let weakTopics = [];
+  let scoreChart = null;
+
+  // Sidebar navigation
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+      item.classList.add('active');
+      document.getElementById(item.dataset.section).classList.add('active');
+      if (item.dataset.section === 'history') loadHistory();
+    });
+  });
+
+  // Upload PDF & generate quiz
+async function uploadPDF() {
+  const fileInput = document.getElementById('pdfFile');
+  if (!fileInput.files.length) return alert('Please select PDF(s)');
+
+  let uploadedList = JSON.parse(localStorage.getItem('uploadedPDFs') || '[]');
+
+  for (let file of fileInput.files) {
+    const formData = new FormData();
+    formData.append('pdf', file);
+
+    document.getElementById('summaryBox').innerHTML = `Processing ${file.name}...`;
+    document.getElementById('quizBox').innerHTML = '';
+    document.getElementById('resultBox').innerHTML = '';
+
+    const res = await fetch('/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    // Store PDF name in list
+    uploadedList.push({ name: file.name, date: new Date().toLocaleString() });
+    localStorage.setItem('uploadedPDFs', JSON.stringify(uploadedList));
+
+    // Show summary & quiz for the latest file
+    summaryText = data.summary || '';
+    document.getElementById('summaryBox').innerHTML = `<h3>${file.name} - Summary</h3><p>${summaryText}</p>`;
+    renderQuiz(data.mcqs || []);
+  }
+
+  renderUploadedList();
+}
+
+
+  function renderQuiz(mcqs) {
+    quizData = mcqs;
+    if (!mcqs.length) {
+      document.getElementById('quizBox').innerHTML = `<div class="card">No MCQs available.</div>`;
+      return;
+    }
+    let html = '<h3>Quiz</h3>';
+    mcqs.forEach((q, idx) => {
+      html += `<div class="quiz-question">
+                <b>${idx+1}. ${q.question}</b>
+                <div class="quiz-options">
+                  ${q.options.map((opt,i) => `<label><input type="radio" name="q${idx}" value="${i}"> ${opt}</label>`).join('')}
+                </div>
+              </div>`;
+    });
+    html += `<button onclick="submitQuiz()">Submit Quiz</button>`;
+    document.getElementById('quizBox').innerHTML = html;
+  }
+
+  async function submitQuiz() {
+    if (!quizData.length) return;
+    const answers = quizData.map((q, idx) => {
+      const selected = document.querySelector(`input[name="q${idx}"]:checked`);
+      return selected ? parseInt(selected.value) : null;
+    });
+    const res = await fetch('/evaluate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mcqs: quizData, answers, context: summaryText })
+    });
+    const result = await res.json();
+    weakTopics = result.weakTopics || [];
+    saveHistory(result);
+    let resultHTML = `
+      <h3>Result</h3>
+      <p>Score: ${result.score}/${result.total} (${result.percentage}%)</p>
+      <p>Weak Topics: ${weakTopics.join(', ') || 'None'}</p>
+    `;
+    if (result.notes && Object.keys(result.notes).length) {
+      resultHTML += `<h4>Easy Notes</h4>`;
+      for (let topic in result.notes) {
+        resultHTML += `<div class="notes-box"><b>${topic}:</b><br>${result.notes[topic]}</div>`;
+      }
+    }
+    if (weakTopics.length) {
+      resultHTML += `<button onclick="retakeQuiz()">Retake Weak Topics</button>`;
+    }
+    document.getElementById('resultBox').innerHTML = resultHTML;
+  }
+
+  async function retakeQuiz() {
+    const res = await fetch('/retake', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topics: weakTopics, context: summaryText })
+    });
+    const data = await res.json();
+    document.getElementById('resultBox').innerHTML = '';
+    renderQuiz(data.mcqs || []);
+  }
+
+  // Save history
+  function saveHistory(result) {
+    let history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
+    history.push({ ...result, date: new Date().toLocaleString() });
+    localStorage.setItem('quizHistory', JSON.stringify(history));
+  }
+
+  // Load history with weak topics chart
+  function loadHistory() {
+    const history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
+    const container = document.getElementById('historyContainer');
+    container.innerHTML = history.length ? '' : '<p>No history yet</p>';
+    let labels = [];
+    let scores = [];
+    history.forEach((h, i) => {
+      let trend = '';
+      if (i > 0) {
+        if (h.percentage > history[i-1].percentage) trend = '<span class="trend-up">↑</span>';
+        else if (h.percentage < history[i-1].percentage) trend = '<span class="trend-down">↓</span>';
+        else trend = '<span class="trend-equal">→</span>';
+      }
+      container.innerHTML += `
+        <div class="history-entry">
+          Attempt ${i+1} (${h.date}) ${trend} - Score: ${h.percentage}%
+        </div>
+      `;
+      labels.push(`Attempt ${i+1}`);
+      scores.push(h.percentage);
+    });
+    drawChart(labels, scores);
+    loadWeakTopicsChart();
+  }
+
+  function renderUploadedList() {
+  const list = document.getElementById('uploadedList');
+  const uploadedList = JSON.parse(localStorage.getItem('uploadedPDFs') || '[]');
+  
+  if (!uploadedList.length) {
+    list.innerHTML = '<li>No PDFs uploaded yet</li>';
+    return;
+  }
+  
+  list.innerHTML = uploadedList
+    .map(pdf => `<li>${pdf.name} <small>(${pdf.date})</small></li>`)
+    .join('');
+}
+
+
+  function drawChart(labels, scores) {
+    const ctx = document.getElementById('scoreChart').getContext('2d');
+    if (scoreChart) scoreChart.destroy();
+    scoreChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Score %',
+          data: scores,
+          backgroundColor: scores.map(s => s >= 50 ? 'rgba(75,192,192,0.6)' : 'rgba(255,99,132,0.6)'),
+          borderColor: scores.map(s => s >= 50 ? 'rgba(75,192,192,1)' : 'rgba(255,99,132,1)'),
+          borderWidth: 1
+        }]
+      },
+      options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } } }
+    });
+  }
+
+  function loadHome() {
+  const history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
+
+  // Welcome message
+  document.getElementById('welcomeMessage').textContent = "Keep learning and improving!";
+
+  // Stats
+  if (history.length) {
+    document.getElementById('lastScore').textContent = history[history.length - 1].percentage + '%';
+  }
+  document.getElementById('totalQuizzes').textContent = history.length;
+
+  // Weak topic
+  const topicCount = {};
+  history.forEach(h => {
+    (h.weakTopics || []).forEach(topic => {
+      topicCount[topic] = (topicCount[topic] || 0) + 1;
+    });
+  });
+  const topTopic = Object.entries(topicCount).sort((a,b) => b[1]-a[1])[0];
+  document.getElementById('topWeakTopic').textContent = topTopic ? topTopic[0] : 'None';
+
+  // Streak calculation
+  let streak = 0;
+  let lastDate = null;
+  history.slice().reverse().forEach(h => {
+    const quizDate = new Date(h.date).toDateString();
+    if (!lastDate) {
+      streak = 1;
+      lastDate = quizDate;
+    } else {
+      const diffDays = (new Date(lastDate) - new Date(quizDate)) / (1000*60*60*24);
+      if (diffDays === 1) {
+        streak++;
+        lastDate = quizDate;
+      } else {
+        return;
+      }
+    }
+  });
+  document.getElementById('streakDays').textContent = streak;
+
+  // Mini chart
+  const labels = history.map((h,i) => `Q${i+1}`);
+  const scores = history.map(h => h.percentage);
+  const ctx = document.getElementById('miniScoreChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'Score %', data: scores, fill:false, borderColor:'#2563eb' }] },
+    options: { responsive: true, scales: { y: { beginAtZero: true, max:100 } } }
+  });
+
+  // Daily quote
+  const quotes = [
+    "Small progress is still progress.",
+    "Study smart, not just hard.",
+    "Consistency beats intensity.",
+    "Every quiz is a step forward."
+  ];
+  document.getElementById('dailyQuote').textContent = quotes[Math.floor(Math.random() * quotes.length)];
+}
+
+function switchSection(sectionId) {
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+  document.querySelector(`.nav-item[data-section="${sectionId}"]`).classList.add('active');
+  document.getElementById(sectionId).classList.add('active');
+}
+
+// Load home stats when opening Home section
+document.querySelector('.nav-item[data-section="home"]').addEventListener('click', loadHome);
+
+// Also load on page start
+loadHome();
+
+
+  function loadWeakTopicsChart() {
+    const history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
+    const topicCount = {};
+    history.forEach(h => {
+      (h.weakTopics || []).forEach(topic => {
+        topicCount[topic] = (topicCount[topic] || 0) + 1;
+      });
+    });
+    const container = document.getElementById('weakTopicsChart');
+    container.innerHTML = '';
+    const labels = Object.keys(topicCount);
+    const data = Object.values(topicCount);
+    if (!labels.length) {
+      container.innerHTML = '<p>No weak topics yet.</p>';
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+    new Chart(canvas, {
+      type: 'pie',
+      data: {
+        labels,
+        datasets: [{
+          data,
+          backgroundColor: ['#ff6384','#36a2eb','#ffce56','#4caf50','#9c27b0','#ff9800']
+        }]
+      }
+    });
+  }
+
+  // Study Materials Search
+  async function fetchStudyMaterials() {
+    const topic = document.getElementById('studyTopic').value.trim();
+    if (!topic) return alert("Please enter a topic");
+    const box = document.getElementById('studyResults');
+    box.innerHTML = `<div class="card">Searching "${topic}"...</div>`;
+    try {
+      const res = await fetch(`/study?topic=${encodeURIComponent(topic)}`);
+      const data = await res.json();
+      let html = '';
+      html += `<div class="card"><h3>📄 AI Notes</h3><p>${data.notes || 'No notes found.'}</p></div>`;
+      if (data.youtube?.length) {
+        html += `<div class="card"><h3>🎥 YouTube Videos</h3><div class="row">`;
+        data.youtube.forEach(v => {
+          html += `
+            <div class="video">
+              <a href="https://www.youtube.com/watch?v=${v.id}" target="_blank" rel="noopener">
+                <img src="${v.thumbnail}" alt="${v.title}">
+              </a>
+              <p style="margin-top:6px;">${v.title}</p>
+            </div>`;
+        });
+        html += `</div></div>`;
+      } else {
+        html += `<div class="card"><h3>🎥 YouTube Videos</h3><p>No videos (add YOUTUBE_API_KEY to enable).</p></div>`;
+      }
+      if (data.resources?.length) {
+        html += `<div class="card resources"><h3>🔗 External Resources</h3><ul>`;
+        data.resources.forEach(r => {
+          html += `<li><a href="${r.link}" target="_blank" rel="noopener">${r.title}</a></li>`;
+        });
+        html += `</ul></div>`;
+      } else {
+        html += `<div class="card resources"><h3>🔗 External Resources</h3><p>No links (add GOOGLE_CSE_API_KEY & GOOGLE_CSE_ID to enable).</p></div>`;
+      }
+      box.innerHTML = html;
+    } catch (e) {
+      console.error(e);
+      box.innerHTML = `<div class="card">Error fetching study materials.</div>`;
+    }
+  }
+</script>
+</body>
+</html>
