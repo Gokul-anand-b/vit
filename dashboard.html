@@ -17,7 +17,7 @@
   .section { display: none; }
   .section.active { display: block; }
   .upload-box { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
-  input[type=file] { margin-bottom: 10px; }
+  input[type=file], input[type=text] { margin-bottom: 10px; }
   .quiz-question { margin-bottom: 15px; }
   .quiz-options label { display: block; margin-bottom: 5px; }
   button { padding: 10px 15px; border: none; border-radius: 5px; background: #2563eb; color: white; cursor: pointer; margin-top: 10px; }
@@ -41,8 +41,7 @@
 <div class="sidebar">
   <h2>Dashboard</h2>
   <div class="nav-item active" data-section="home">🏠 Home</div>
-  <div class="nav-item" data-section="uploads">📤 Uploads</div>
-  
+  <div class="nav-item" data-section="summary">📄 Summary</div>
   <div class="nav-item" data-section="study">📚 Study Materials</div>
   <div class="nav-item" data-section="history">📈 History</div>
   <div class="nav-item" data-section="profile">👤 Profile</div>
@@ -52,53 +51,59 @@
 <div class="main">
   <!-- Home -->
   <div id="home" class="section active">
-  <h1>Welcome Back!</h1>
-  <p id="welcomeMessage"></p>
+    <h1>Welcome Back!</h1>
+    <p id="welcomeMessage"></p>
 
-  <!-- Stats Row -->
-  <div class="row">
-    <div class="card">📊 Last Score: <b id="lastScore">-</b></div>
-    <div class="card">📝 Total Quizzes: <b id="totalQuizzes">0</b></div>
-    <div class="card">🔥 Streak: <b id="streakDays">0</b> days</div>
-    <div class="card">⚠ Weak Topic: <b id="topWeakTopic">None</b></div>
+    <!-- Stats Row -->
+    <div class="row">
+      <div class="card">📊 Last Score: <b id="lastScore">-</b></div>
+      <div class="card">📝 Total Quizzes: <b id="totalQuizzes">0</b></div>
+      <div class="card">🔥 Streak: <b id="streakDays">0</b> days</div>
+      <div class="card">⚠ Weak Topic: <b id="topWeakTopic">None</b></div>
+    </div>
+
+    <!-- Mini Chart -->
+    <div class="card" style="max-width:500px; margin-top:20px;">
+      <canvas id="miniScoreChart"></canvas>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row" style="margin-top:20px;">
+      <button onclick="switchSection('summary')">📄 Summary</button>
+      <button onclick="switchSection('study')">📚 Study Materials</button>
+      <button onclick="switchSection('history')">📈 View History</button>
+    </div>
+
+    <!-- Motivation -->
+    <div class="card" style="margin-top:20px;">
+      <i id="dailyQuote"></i>
+    </div>
   </div>
 
-  <!-- Mini Chart -->
-  <div class="card" style="max-width:500px; margin-top:20px;">
-    <canvas id="miniScoreChart"></canvas>
-  </div>
+  <!-- Summary -->
+  <div id="summary" class="section">
+    <h1>PDF Summary</h1>
+    <div class="upload-box">
+      <input type="file" id="pdfFile" accept="application/pdf" multiple>
+      <button onclick="uploadPDF()">Upload & Generate Summary</button>
+    </div>
 
-  <!-- Quick Actions -->
-  <div class="row" style="margin-top:20px;">
-    <button onclick="switchSection('uploads')">📤 Upload & Quiz</button>
-    <button onclick="switchSection('study')">📚 Study Materials</button>
-    <button onclick="switchSection('history')">📈 View History</button>
-  </div>
+    <div id="summaryBox"></div>
 
-  <!-- Motivation -->
-  <div class="card" style="margin-top:20px;">
-    <i id="dailyQuote"></i>
-  </div>
-</div>
+    <!-- Button to generate MCQs -->
+    <div style="margin-top:10px;">
+      <button onclick="renderQuiz(quizData)">Take Quiz</button>
+    </div>
 
-  <!-- Uploads -->
-  <div id="uploads" class="section">
-  <h1>Upload PDF & Take Quiz</h1>
-  <div class="upload-box">
-    <input type="file" id="pdfFile" accept="application/pdf" multiple>
-    <button onclick="uploadPDF()">Upload</button>
-  </div>
-  <div id="summaryBox"></div>
-  <div id="quizBox"></div>
-  <div id="resultBox"></div>
+    <div id="quizBox"></div>
+    <div id="resultBox"></div>
 
-  <!-- Uploaded PDFs List -->
-  <div class="card" style="margin-top:20px;">
-    <h3>Uploaded PDFs</h3>
-    <ul id="uploadedList"></ul>
+    <!-- Uploaded PDFs List -->
+    <div class="card" style="margin-top:20px;">
+      <h3>Uploaded PDFs</h3>
+      <ul id="uploadedList"></ul>
+    </div>
   </div>
-</div>
-
 
   <!-- Study Materials -->
   <div id="study" class="section">
@@ -121,7 +126,6 @@
     <div id="historyContainer"></div>
     <canvas id="scoreChart" width="400" height="200"></canvas>
 
-    <!-- Weak Topics Chart -->
     <h2 style="margin-top:20px;">Most Frequent Weak Topics</h2>
     <div id="weakTopicsChart" style="max-width: 400px; margin-top:10px;"></div>
   </div>
@@ -134,23 +138,23 @@
 </div>
 
 <script>
-  let quizData = [];
-  let summaryText = '';
-  let weakTopics = [];
-  let scoreChart = null;
+let quizData = [];
+let summaryText = '';
+let weakTopics = [];
+let scoreChart = null;
 
-  // Sidebar navigation
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-      document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
-      item.classList.add('active');
-      document.getElementById(item.dataset.section).classList.add('active');
-      if (item.dataset.section === 'history') loadHistory();
-    });
+// Sidebar navigation
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById(item.dataset.section).classList.add('active');
+    if (item.dataset.section === 'history') loadHistory();
   });
+});
 
-  // Upload PDF & generate quiz
+// Upload PDF & generate summary
 async function uploadPDF() {
   const fileInput = document.getElementById('pdfFile');
   if (!fileInput.files.length) return alert('Please select PDF(s)');
@@ -168,295 +172,348 @@ async function uploadPDF() {
     const res = await fetch('/upload', { method: 'POST', body: formData });
     const data = await res.json();
 
-    // Store PDF name in list
     uploadedList.push({ name: file.name, date: new Date().toLocaleString() });
     localStorage.setItem('uploadedPDFs', JSON.stringify(uploadedList));
 
-    // Show summary & quiz for the latest file
     summaryText = data.summary || '';
+    quizData = data.mcqs || []; // store MCQs but don't render yet
     document.getElementById('summaryBox').innerHTML = `<h3>${file.name} - Summary</h3><p>${summaryText}</p>`;
-    renderQuiz(data.mcqs || []);
   }
 
   renderUploadedList();
 }
 
+function renderQuiz(mcqs) {
+  if (!mcqs.length) {
+    document.getElementById('quizBox').innerHTML = `<div class="card">No MCQs available.</div>`;
+    return;
+  }
+  let html = '<h3>Quiz</h3>';
+  mcqs.forEach((q, idx) => {
+    html += `<div class="quiz-question">
+              <b>${idx+1}. ${q.question}</b>
+              <div class="quiz-options">
+                ${q.options.map((opt,i) => `<label><input type="radio" name="q${idx}" value="${i}"> ${opt}</label>`).join('')}
+              </div>
+            </div>`;
+  });
+  html += `<button onclick="submitQuiz()">Submit Quiz</button>`;
+  document.getElementById('quizBox').innerHTML = html;
+}
 
-  function renderQuiz(mcqs) {
-    quizData = mcqs;
-    if (!mcqs.length) {
-      document.getElementById('quizBox').innerHTML = `<div class="card">No MCQs available.</div>`;
-      return;
+async function submitQuiz() {
+  if (!quizData.length) return;
+  const answers = quizData.map((q, idx) => {
+    const selected = document.querySelector(`input[name="q${idx}"]:checked`);
+    return selected ? parseInt(selected.value) : null;
+  });
+  const res = await fetch('/evaluate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mcqs: quizData, answers, context: summaryText })
+  });
+  const result = await res.json();
+  weakTopics = result.weakTopics || [];
+  saveHistory(result);
+  let resultHTML = `
+    <h3>Result</h3>
+    <p>Score: ${result.score}/${result.total} (${result.percentage}%)</p>
+    <p>Weak Topics: ${weakTopics.join(', ') || 'None'}</p>
+  `;
+  if (result.notes && Object.keys(result.notes).length) {
+    resultHTML += `<h4>Easy Notes</h4>`;
+    for (let topic in result.notes) {
+      resultHTML += `<div class="notes-box"><b>${topic}:</b><br>${result.notes[topic]}</div>`;
     }
-    let html = '<h3>Quiz</h3>';
-    mcqs.forEach((q, idx) => {
-      html += `<div class="quiz-question">
-                <b>${idx+1}. ${q.question}</b>
-                <div class="quiz-options">
-                  ${q.options.map((opt,i) => `<label><input type="radio" name="q${idx}" value="${i}"> ${opt}</label>`).join('')}
-                </div>
-              </div>`;
-    });
-    html += `<button onclick="submitQuiz()">Submit Quiz</button>`;
-    document.getElementById('quizBox').innerHTML = html;
+  }
+  if (weakTopics.length) {
+    resultHTML += `<button onclick="retakeQuiz()">Retake Weak Topics</button>`;
+  }
+  document.getElementById('resultBox').innerHTML = resultHTML;
+}
+
+
+async function fetchYouTube(q) {
+  const YT_KEY = process.env.YOUTUBE_API_KEY;
+  if (!YT_KEY) {
+    console.log('YouTube API key not configured - skipping YouTube search');
+    return [];
   }
 
-  async function submitQuiz() {
-    if (!quizData.length) return;
-    const answers = quizData.map((q, idx) => {
-      const selected = document.querySelector(`input[name="q${idx}"]:checked`);
-      return selected ? parseInt(selected.value) : null;
+  try {
+    const url = 'https://www.googleapis.com/youtube/v3/search';
+    const { data } = await axios.get(url, {
+      params: {
+        key: YT_KEY,
+        q: encodeURIComponent(q + " tutorial"), // Add "tutorial" for better results
+        part: 'snippet',
+        maxResults: 6,
+        type: 'video',
+        safeSearch: 'moderate',
+        videoEmbeddable: 'true',
+        relevanceLanguage: 'en',
+        order: 'relevance', // Get most relevant first
+        videoDuration: 'medium', // Prefer 4-20 minute videos
+        fields: 'items(id(videoId),snippet(title,channelTitle,thumbnails(medium(url),publishTime))'
+      },
+      timeout: 5000
     });
-    const res = await fetch('/evaluate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mcqs: quizData, answers, context: summaryText })
+
+    return (data.items || []).map(item => ({
+      id: item.id?.videoId,
+      title: item.snippet?.title,
+      channel: item.snippet?.channelTitle,
+      thumbnail: item.snippet?.thumbnails?.medium?.url,
+      publishedAt: item.snippet?.publishTime,
+      url: `https://www.youtube.com/watch?v=${item.id?.videoId}`
+    }))
+    .filter(video => video.id && video.title)
+    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)); // Newest first
+  } catch (error) {
+    console.error('YouTube API error:', error.response?.data || error.message);
+    return [];
+  }
+}
+
+
+
+async function fetchWebResources(q) {
+  const CSE_KEY = process.env.GOOGLE_CSE_API_KEY;
+  const CSE_ID = process.env.GOOGLE_CSE_ID;
+  if (!CSE_KEY || !CSE_ID) {
+    console.log('Google CSE credentials not configured - skipping web search');
+    return [];
+  }
+
+  try {
+    const url = 'https://www.googleapis.com/customsearch/v1';
+    const { data } = await axios.get(url, {
+      params: {
+        key: CSE_KEY,
+        cx: CSE_ID,
+        q: encodeURIComponent(q + " filetype:pdf OR site:edu OR site:org"),
+        num: 6,
+        safe: 'active',
+        lr: 'lang_en', // English results only
+        sort: 'date', // Newest first
+        fields: 'items(title,link,snippet)'
+      },
+      timeout: 5000
     });
-    const result = await res.json();
-    weakTopics = result.weakTopics || [];
-    saveHistory(result);
-    let resultHTML = `
-      <h3>Result</h3>
-      <p>Score: ${result.score}/${result.total} (${result.percentage}%)</p>
-      <p>Weak Topics: ${weakTopics.join(', ') || 'None'}</p>
+
+    return (data.items || []).map(item => ({
+      title: item.title,
+      link: item.link,
+      snippet: item.snippet || ''
+    }))
+    .filter(resource => resource.title && resource.link)
+    .sort((a, b) => {
+      // Prioritize .edu and .org domains
+      const aScore = a.link.includes('.edu') ? 2 : a.link.includes('.org') ? 1 : 0;
+      const bScore = b.link.includes('.edu') ? 2 : b.link.includes('.org') ? 1 : 0;
+      return bScore - aScore;
+    });
+  } catch (error) {
+    console.error('Google CSE error:', error.response?.data || error.message);
+    return [];
+  }
+}
+
+
+async function fetchStudyMaterials() {
+  const topic = document.getElementById('studyTopic').value.trim();
+  if (!topic) return alert('Enter topic!');
+  
+  const resDiv = document.getElementById('studyResults');
+  resDiv.innerHTML = '<div class="card">Searching...</div>';
+
+  try {
+    // Call your backend API
+    const response = await fetch(`/study?topic=${encodeURIComponent(topic)}`);
+    const data = await response.json();
+
+    let html = `<div class="card"><b>Resources for ${topic}:</b>`;
+    
+    // AI Notes
+    if (data.notes) {
+      html += `<div class="notes-box">${data.notes}</div>`;
+    }
+
+    // YouTube Videos
+    if (data.youtube && data.youtube.length) {
+      html += `<h3 style="margin-top:15px;">Videos</h3><div class="row">`;
+      data.youtube.forEach(video => {
+        html += `<div class="video">
+          <a href="https://youtu.be/${video.id}" target="_blank">
+            <img src="${video.thumbnail}" alt="${video.title}">
+            <p>${video.title}</p>
+          </a>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    // Web Resources
+    if (data.resources && data.resources.length) {
+      html += `<h3 style="margin-top:15px;">Articles & PDFs</h3><ul>`;
+      data.resources.forEach(res => {
+        html += `<li><a href="${res.link}" target="_blank">${res.title}</a></li>`;
+      });
+      html += `</ul>`;
+    }
+
+    resDiv.innerHTML = html + '</div>';
+
+  } catch (error) {
+    console.error('Study materials error:', error);
+    resDiv.innerHTML = `<div class="card">Error loading resources</div>`;
+  }
+}
+
+async function retakeQuiz() {
+  const res = await fetch('/retake', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topics: weakTopics, context: summaryText })
+  });
+  const data = await res.json();
+  document.getElementById('resultBox').innerHTML = '';
+  renderQuiz(data.mcqs || []);
+}
+
+function saveHistory(result) {
+  let history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
+  history.push({ ...result, date: new Date().toLocaleString() });
+  localStorage.setItem('quizHistory', JSON.stringify(history));
+}
+
+function loadHistory() {
+  const history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
+  const container = document.getElementById('historyContainer');
+  container.innerHTML = history.length ? '' : '<p>No history yet</p>';
+  let labels = [];
+  let scores = [];
+  history.forEach((h, i) => {
+    let trend = '';
+    if (i > 0) {
+      if (h.percentage > history[i-1].percentage) trend = '<span class="trend-up">↑</span>';
+      else if (h.percentage < history[i-1].percentage) trend = '<span class="trend-down">↓</span>';
+      else trend = '<span class="trend-equal">→</span>';
+    }
+    container.innerHTML += `
+      <div class="history-entry">
+        Attempt ${i+1} (${h.date}) ${trend} - Score: ${h.percentage}%
+      </div>
     `;
-    if (result.notes && Object.keys(result.notes).length) {
-      resultHTML += `<h4>Easy Notes</h4>`;
-      for (let topic in result.notes) {
-        resultHTML += `<div class="notes-box"><b>${topic}:</b><br>${result.notes[topic]}</div>`;
-      }
-    }
-    if (weakTopics.length) {
-      resultHTML += `<button onclick="retakeQuiz()">Retake Weak Topics</button>`;
-    }
-    document.getElementById('resultBox').innerHTML = resultHTML;
-  }
+    labels.push(`Attempt ${i+1}`);
+    scores.push(h.percentage);
+  });
+  drawChart(labels, scores);
+  loadWeakTopicsChart();
+}
 
-  async function retakeQuiz() {
-    const res = await fetch('/retake', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topics: weakTopics, context: summaryText })
-    });
-    const data = await res.json();
-    document.getElementById('resultBox').innerHTML = '';
-    renderQuiz(data.mcqs || []);
-  }
-
-  // Save history
-  function saveHistory(result) {
-    let history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
-    history.push({ ...result, date: new Date().toLocaleString() });
-    localStorage.setItem('quizHistory', JSON.stringify(history));
-  }
-
-  // Load history with weak topics chart
-  function loadHistory() {
-    const history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
-    const container = document.getElementById('historyContainer');
-    container.innerHTML = history.length ? '' : '<p>No history yet</p>';
-    let labels = [];
-    let scores = [];
-    history.forEach((h, i) => {
-      let trend = '';
-      if (i > 0) {
-        if (h.percentage > history[i-1].percentage) trend = '<span class="trend-up">↑</span>';
-        else if (h.percentage < history[i-1].percentage) trend = '<span class="trend-down">↓</span>';
-        else trend = '<span class="trend-equal">→</span>';
-      }
-      container.innerHTML += `
-        <div class="history-entry">
-          Attempt ${i+1} (${h.date}) ${trend} - Score: ${h.percentage}%
-        </div>
-      `;
-      labels.push(`Attempt ${i+1}`);
-      scores.push(h.percentage);
-    });
-    drawChart(labels, scores);
-    loadWeakTopicsChart();
-  }
-
-  function renderUploadedList() {
+function renderUploadedList() {
   const list = document.getElementById('uploadedList');
   const uploadedList = JSON.parse(localStorage.getItem('uploadedPDFs') || '[]');
-  
   if (!uploadedList.length) {
     list.innerHTML = '<li>No PDFs uploaded yet</li>';
     return;
   }
-  
-  list.innerHTML = uploadedList
-    .map(pdf => `<li>${pdf.name} <small>(${pdf.date})</small></li>`)
-    .join('');
+  list.innerHTML = uploadedList.map(pdf => `<li>${pdf.name} <small>(${pdf.date})</small></li>`).join('');
 }
 
+function drawChart(labels, scores) {
+  const ctx = document.getElementById('scoreChart').getContext('2d');
+  if (scoreChart) scoreChart.destroy();
+  scoreChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Score %',
+        data: scores,
+        backgroundColor: scores.map(s => s >= 50 ? 'rgba(75,192,192,0.6)' : 'rgba(255,99,132,0.6)'),
+        borderColor: scores.map(s => s >= 50 ? 'rgba(75,192,192,1)' : 'rgba(255,99,132,1)'),
+        borderWidth: 1
+      }]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } } }
+  });
+}
 
-  function drawChart(labels, scores) {
-    const ctx = document.getElementById('scoreChart').getContext('2d');
-    if (scoreChart) scoreChart.destroy();
-    scoreChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Score %',
-          data: scores,
-          backgroundColor: scores.map(s => s >= 50 ? 'rgba(75,192,192,0.6)' : 'rgba(255,99,132,0.6)'),
-          borderColor: scores.map(s => s >= 50 ? 'rgba(75,192,192,1)' : 'rgba(255,99,132,1)'),
-          borderWidth: 1
-        }]
-      },
-      options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } } }
-    });
-  }
-
-  function loadHome() {
+function loadHome() {
   const history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
-
-  // Welcome message
   document.getElementById('welcomeMessage').textContent = "Keep learning and improving!";
-
-  // Stats
   if (history.length) {
     document.getElementById('lastScore').textContent = history[history.length - 1].percentage + '%';
   }
   document.getElementById('totalQuizzes').textContent = history.length;
 
-  // Weak topic
   const topicCount = {};
-  history.forEach(h => {
-    (h.weakTopics || []).forEach(topic => {
-      topicCount[topic] = (topicCount[topic] || 0) + 1;
-    });
-  });
-  const topTopic = Object.entries(topicCount).sort((a,b) => b[1]-a[1])[0];
+  history.forEach(h => (h.weakTopics || []).forEach(t => topicCount[t] = (topicCount[t]||0)+1));
+  const topTopic = Object.entries(topicCount).sort((a,b)=>b[1]-a[1])[0];
   document.getElementById('topWeakTopic').textContent = topTopic ? topTopic[0] : 'None';
 
-  // Streak calculation
-  let streak = 0;
-  let lastDate = null;
-  history.slice().reverse().forEach(h => {
+  let streak = 0, lastDate = null;
+  history.slice().reverse().forEach(h=>{
     const quizDate = new Date(h.date).toDateString();
-    if (!lastDate) {
-      streak = 1;
-      lastDate = quizDate;
-    } else {
-      const diffDays = (new Date(lastDate) - new Date(quizDate)) / (1000*60*60*24);
-      if (diffDays === 1) {
-        streak++;
-        lastDate = quizDate;
-      } else {
-        return;
-      }
+    if(!lastDate){ streak=1; lastDate=quizDate; } 
+    else { 
+      const diffDays=(new Date(lastDate)-new Date(quizDate))/(1000*60*60*24);
+      if(diffDays===1){ streak++; lastDate=quizDate; } 
+      else return; 
     }
   });
-  document.getElementById('streakDays').textContent = streak;
+  document.getElementById('streakDays').textContent=streak;
 
-  // Mini chart
-  const labels = history.map((h,i) => `Q${i+1}`);
-  const scores = history.map(h => h.percentage);
+  const labels = history.map((h,i)=>`Q${i+1}`);
+  const scores = history.map(h=>h.percentage);
   const ctx = document.getElementById('miniScoreChart').getContext('2d');
-  new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets: [{ label: 'Score %', data: scores, fill:false, borderColor:'#2563eb' }] },
-    options: { responsive: true, scales: { y: { beginAtZero: true, max:100 } } }
+  new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[{label:'Score %',data:scores,fill:false,borderColor:'#2563eb'}]},
+    options:{responsive:true,scales:{y:{beginAtZero:true,max:100}}}
   });
 
-  // Daily quote
-  const quotes = [
+  const quotes=[
     "Small progress is still progress.",
     "Study smart, not just hard.",
     "Consistency beats intensity.",
     "Every quiz is a step forward."
   ];
-  document.getElementById('dailyQuote').textContent = quotes[Math.floor(Math.random() * quotes.length)];
+  document.getElementById('dailyQuote').textContent=quotes[Math.floor(Math.random()*quotes.length)];
 }
 
 function switchSection(sectionId) {
-  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-  document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(sec=>sec.classList.remove('active'));
   document.querySelector(`.nav-item[data-section="${sectionId}"]`).classList.add('active');
   document.getElementById(sectionId).classList.add('active');
 }
 
-// Load home stats when opening Home section
 document.querySelector('.nav-item[data-section="home"]').addEventListener('click', loadHome);
-
-// Also load on page start
 loadHome();
 
+function loadWeakTopicsChart() {
+  const history = JSON.parse(localStorage.getItem('quizHistory')||'[]');
+  const topicCount = {};
+  history.forEach(h=> (h.weakTopics||[]).forEach(t=> topicCount[t]=(topicCount[t]||0)+1));
+  const container = document.getElementById('weakTopicsChart');
+  container.innerHTML='';
+  const labels=Object.keys(topicCount);
+  const data=Object.values(topicCount);
+  if(!labels.length){ container.innerHTML='<p>No weak topics yet.</p>'; return; }
+  const canvas=document.createElement('canvas');
+  container.appendChild(canvas);
+  new Chart(canvas,{
+    type:'pie',
+    data:{labels,datasets:[{data,backgroundColor:['#ff6384','#36a2eb','#ffce56','#4caf50','#9c27b0','#ff9800']}]},
+    options:{responsive:true}
+  });
+}
 
-  function loadWeakTopicsChart() {
-    const history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
-    const topicCount = {};
-    history.forEach(h => {
-      (h.weakTopics || []).forEach(topic => {
-        topicCount[topic] = (topicCount[topic] || 0) + 1;
-      });
-    });
-    const container = document.getElementById('weakTopicsChart');
-    container.innerHTML = '';
-    const labels = Object.keys(topicCount);
-    const data = Object.values(topicCount);
-    if (!labels.length) {
-      container.innerHTML = '<p>No weak topics yet.</p>';
-      return;
-    }
-    const canvas = document.createElement('canvas');
-    container.appendChild(canvas);
-    new Chart(canvas, {
-      type: 'pie',
-      data: {
-        labels,
-        datasets: [{
-          data,
-          backgroundColor: ['#ff6384','#36a2eb','#ffce56','#4caf50','#9c27b0','#ff9800']
-        }]
-      }
-    });
-  }
 
-  // Study Materials Search
-  async function fetchStudyMaterials() {
-    const topic = document.getElementById('studyTopic').value.trim();
-    if (!topic) return alert("Please enter a topic");
-    const box = document.getElementById('studyResults');
-    box.innerHTML = `<div class="card">Searching "${topic}"...</div>`;
-    try {
-      const res = await fetch(`/study?topic=${encodeURIComponent(topic)}`);
-      const data = await res.json();
-      let html = '';
-      html += `<div class="card"><h3>📄 AI Notes</h3><p>${data.notes || 'No notes found.'}</p></div>`;
-      if (data.youtube?.length) {
-        html += `<div class="card"><h3>🎥 YouTube Videos</h3><div class="row">`;
-        data.youtube.forEach(v => {
-          html += `
-            <div class="video">
-              <a href="https://www.youtube.com/watch?v=${v.id}" target="_blank" rel="noopener">
-                <img src="${v.thumbnail}" alt="${v.title}">
-              </a>
-              <p style="margin-top:6px;">${v.title}</p>
-            </div>`;
-        });
-        html += `</div></div>`;
-      } else {
-        html += `<div class="card"><h3>🎥 YouTube Videos</h3><p>No videos (add YOUTUBE_API_KEY to enable).</p></div>`;
-      }
-      if (data.resources?.length) {
-        html += `<div class="card resources"><h3>🔗 External Resources</h3><ul>`;
-        data.resources.forEach(r => {
-          html += `<li><a href="${r.link}" target="_blank" rel="noopener">${r.title}</a></li>`;
-        });
-        html += `</ul></div>`;
-      } else {
-        html += `<div class="card resources"><h3>🔗 External Resources</h3><p>No links (add GOOGLE_CSE_API_KEY & GOOGLE_CSE_ID to enable).</p></div>`;
-      }
-      box.innerHTML = html;
-    } catch (e) {
-      console.error(e);
-      box.innerHTML = `<div class="card">Error fetching study materials.</div>`;
-    }
-  }
 </script>
+
 </body>
 </html>

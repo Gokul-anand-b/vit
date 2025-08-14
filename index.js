@@ -30,7 +30,7 @@ const upload = multer({ storage });
 
 // Serve frontend
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dashboard.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 /**
@@ -242,32 +242,7 @@ Create simple study notes for the topic "${topic}".
 });
 
 // Helper: YouTube search (returns [] if no key)
-async function fetchYouTube(q) {
-  const YT_KEY = process.env.YOUTUBE_API_KEY;
-  if (!YT_KEY) return [];
-  try {
-    const url = 'https://www.googleapis.com/youtube/v3/search';
-    const { data } = await axios.get(url, {
-      params: {
-        key: YT_KEY,
-        q,
-        part: 'snippet',
-        maxResults: 6,
-        type: 'video',
-        safeSearch: 'moderate'
-      }
-    });
-    return (data.items || []).map(it => ({
-      id: it.id?.videoId,
-      title: it.snippet?.title,
-      thumbnail: it.snippet?.thumbnails?.medium?.url
-    })).filter(v => v.id);
-  } catch (e) {
-    console.error('YouTube API error:', e.response?.data || e.message);
-    return [];
-  }
-}
-
+// Helper: YouTube search (improved version)
 // Helper: Google Custom Search (returns [] if no keys)
 async function fetchWebResources(q) {
   const CSE_KEY = process.env.GOOGLE_CSE_API_KEY;
@@ -295,6 +270,35 @@ async function fetchWebResources(q) {
     return [];
   }
 }
+
+// Fetch YouTube videos for a topic
+async function fetchYouTube(query) {
+  const YT_KEY = process.env.YOUTUBE_API_KEY;
+  if (!YT_KEY) return [];
+
+  try {
+    const url = 'https://www.googleapis.com/youtube/v3/search';
+    const { data } = await axios.get(url, {
+      params: {
+        key: YT_KEY,
+        q: query,
+        part: 'snippet',
+        maxResults: 5,
+        type: 'video'
+      }
+    });
+
+    return (data.items || []).map(item => ({
+      title: item.snippet.title,
+      url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+      thumbnail: item.snippet.thumbnails?.medium?.url || ''
+    }));
+  } catch (err) {
+    console.error('YouTube API error:', err.response?.data || err.message);
+    return [];
+  }
+}
+
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
